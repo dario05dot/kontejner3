@@ -1,0 +1,33 @@
+name: Test FIFO with Python reader/writer
+on: workflow_dispatch
+
+jobs:
+  repro:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Controlled FIFO test
+        run: |
+          set -euxo pipefail
+          rm -f "$GITHUB_ENV"
+          mkfifo "$GITHUB_ENV"
+
+          python3 - <<'PY' &
+          import os
+          path = os.environ["GITHUB_ENV"]
+          with open(path, "r") as f:
+              line = f.readline()
+          with open("/tmp/captured.txt", "w") as out:
+              out.write(line)
+          PY
+
+          sleep 1
+
+          python3 - <<'PY'
+          import os
+          path = os.environ["GITHUB_ENV"]
+          with open(path, "w") as f:
+              f.write("X=1\n")
+          PY
+
+          sleep 1
+          cat /tmp/captured.txt
