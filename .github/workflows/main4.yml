@@ -1,0 +1,20 @@
+name: Test FIFO in same step
+on: workflow_dispatch
+
+jobs:
+  repro:
+    runs-on: ubuntu-latest
+    steps:
+      - name: FIFO write in same shell step
+        run: |
+          set -euxo pipefail
+          rm -f "$GITHUB_ENV"
+          mkfifo "$GITHUB_ENV"
+          (cat < "$GITHUB_ENV" > /tmp/captured.txt) &
+          python3 - <<'PY'
+          import os
+          path = os.environ["GITHUB_ENV"]
+          with open(path, "a") as f:
+              f.write("X=1\n")
+          PY
+          cat /tmp/captured.txt
