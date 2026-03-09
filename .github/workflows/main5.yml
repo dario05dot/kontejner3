@@ -1,0 +1,28 @@
+name: Test FIFO single-read
+on: workflow_dispatch
+
+jobs:
+  repro:
+    runs-on: ubuntu-latest
+    steps:
+      - name: FIFO single read then exit
+        run: |
+          set -euxo pipefail
+          rm -f "$GITHUB_ENV"
+          mkfifo "$GITHUB_ENV"
+
+          (
+            IFS= read -r line < "$GITHUB_ENV"
+            printf '%s\n' "$line" > /tmp/captured.txt
+          ) &
+
+          python3 - <<'PY'
+          import os
+          path = os.environ["GITHUB_ENV"]
+          with open(path, "a") as f:
+              f.write("X=1\n")
+          PY
+
+          sleep 1
+          ps -ef | grep -E 'cat|bash' | grep -v grep || true
+          cat /tmp/captured.txt || true
