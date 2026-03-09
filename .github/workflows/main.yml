@@ -1,0 +1,35 @@
+name: PoC - GITHUB_ENV FIFO deadlock
+on: workflow_dispatch
+
+jobs:
+  repro:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Replace GITHUB_ENV with FIFO
+        run: |
+          set -euxo pipefail
+          echo "GITHUB_ENV=$GITHUB_ENV"
+          ls -l "$GITHUB_ENV" || true
+          rm -f "$GITHUB_ENV"
+          mkfifo "$GITHUB_ENV"
+          ls -l "$GITHUB_ENV"
+
+      - name: Start reader on FIFO
+        run: |
+          set -euxo pipefail
+          timeout 600 bash -c 'cat < "$GITHUB_ENV" > /tmp/captured_env.txt' &
+          echo "reader started"
+
+      - name: Trigger write through official action
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('POC_VAR', 'test-value')
+
+      - name: Show captured data
+        if: always()
+        run: |
+          set -x
+          cat /tmp/captured_env.txt || true
