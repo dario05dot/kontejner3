@@ -1,0 +1,23 @@
+name: 1. Root Escalation Strike
+on: workflow_dispatch
+
+jobs:
+  pwn:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git Checkout (Da li će sačuvati SUID?)
+        uses: actions/checkout@v3
+
+      - name: Provjera Dozvola
+        run: |
+          echo "[*] Trazim SUID bit na fajlu..."
+          ls -la root_virus
+
+      - name: Egzekucija (The Kill Shot)
+        run: |
+          echo "[*] Pokrecem virus kao obicni korisnik 'runner'..."
+          # Prvo pokazujemo ko smo mi
+          id
+          echo "---"
+          # Zatim pokrecemo virus koji pokusava preuzeti Root
+          ./root_virus
