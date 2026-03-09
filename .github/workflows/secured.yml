@@ -1,0 +1,30 @@
+name: Secured Production Worker
+on:
+  workflow_run:
+    workflows: ["PR Builder"] # Okida se kada tvoj PR završi
+    types: [completed]
+
+permissions: write-all # Zrtva ima apsolutna prava
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preuzmi hakerov artefakt
+        uses: actions/download-artifact@v3
+        with:
+          name: pr_payload
+          path: output/
+          
+      - name: Obrada fajlova
+        run: |
+          echo "Simuliram rad sa hakerovim kodom..."
+          # Zrtva misli da samo cita tekst, ali ne zna za Symlink
+          cat output/test_results.txt || true
+          
+      - name: Slanje izvjestaja nazad (Zamka)
+        # Firma nakon obrade ponovo pakuje artefakt da sacuva logove
+        uses: actions/upload-artifact@v3
+        with:
+          name: production_logs
+          path: output/
