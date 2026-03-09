@@ -1,35 +1,51 @@
-name: PoC - GITHUB_ENV FIFO deadlock
+name: Compare github-script versions
 on: workflow_dispatch
 
 jobs:
-  repro:
+  v6:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Replace GITHUB_ENV with FIFO
         run: |
           set -euxo pipefail
-          echo "GITHUB_ENV=$GITHUB_ENV"
-          ls -l "$GITHUB_ENV" || true
           rm -f "$GITHUB_ENV"
           mkfifo "$GITHUB_ENV"
-          ls -l "$GITHUB_ENV"
-
-      - name: Start reader on FIFO
+      - name: Start reader
         run: |
           set -euxo pipefail
-          timeout 600 bash -c 'cat < "$GITHUB_ENV" > /tmp/captured_env.txt' &
-          echo "reader started"
+          (cat < "$GITHUB_ENV" > /tmp/v6.txt) &
+          echo $! > /tmp/reader.pid
+      - name: Trigger write v6
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.exportVariable('POC_VAR', 'v6')
+      - name: Show result
+        if: always()
+        run: |
+          cat /tmp/v6.txt || true
 
-      - name: Trigger write through official action
+  v7:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace GITHUB_ENV with FIFO
+        run: |
+          set -euxo pipefail
+          rm -f "$GITHUB_ENV"
+          mkfifo "$GITHUB_ENV"
+      - name: Start reader
+        run: |
+          set -euxo pipefail
+          (cat < "$GITHUB_ENV" > /tmp/v7.txt) &
+          echo $! > /tmp/reader.pid
+      - name: Trigger write v7
         uses: actions/github-script@v7
         with:
           script: |
-            core.exportVariable('POC_VAR', 'test-value')
-
-      - name: Show captured data
+            core.exportVariable('POC_VAR', 'v7')
+      - name: Show result
         if: always()
         run: |
-          set -x
-          cat /tmp/captured_env.txt || true
+          cat /tmp/v7.txt || true
